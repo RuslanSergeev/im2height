@@ -31,6 +31,7 @@ class Unpool(LightningModule):
 		super(Unpool, self).__init__()
 
 		self.pool_fn = nn.MaxUnpool2d(kernel_size, stride, **kwargs)
+        self.validation_step_outputs = []
 
 	def forward(self, x, indices, output_size, *args, **kwargs):
 
@@ -151,18 +152,18 @@ class Im2Height(LightningModule):
 		ssim_loss = ssim(y_pred, y)
 
 		tensorboard_logs = { 'val_l1loss': l1loss, 'val_l2loss': l2loss, 'val_ssimloss': ssim_loss }
+        self.validation_step_outputs.append(tensorboard_logs)
 
 		return tensorboard_logs
 
-	def validation_epoch_end(self, outputs):
+	def on_validation_epoch_end(self):
+        avg_l1loss = torch.stack([x['val_l1loss'] for x in self.validation_step_outputs]).mean()
+        avg_l2loss = torch.stack([x['val_l2loss'] for x in self.validation_step_outputs]).mean()
+        avg_ssimloss = torch.stack([x['val_ssimloss'] for x in self.validation_step_outputs]).mean()
 
-		avg_l1loss = torch.stack([x['val_l1loss'] for x in outputs]).mean()
-		avg_l2loss = torch.stack([x['val_l2loss'] for x in outputs]).mean()
-		avg_ssimloss = torch.stack([x['val_ssimloss'] for x in outputs]).mean()
-		tensorboard_logs = { 'val_l1loss': avg_l1loss, 'val_l2loss': avg_l2loss, 'val_ssimloss': avg_ssimloss }
-
-		return { 'val_l1loss': avg_l1loss, 'log': tensorboard_logs }
-
+        tensorboard_logs = { 'val_l1loss': avg_l1loss, 'val_l2loss': avg_l2loss, 'val_ssimloss': avg_ssimloss }
+        self.validation_step_outputs.clear()
+        return { 'val_l1loss': avg_l1loss, 'log': tensorboard_logs }
 
 
 if __name__ == "__main__":
